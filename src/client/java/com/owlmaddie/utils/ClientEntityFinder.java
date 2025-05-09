@@ -14,10 +14,8 @@ import java.util.UUID;
 
 import com.owlmaddie.chat.ChatDataManager;
 import com.owlmaddie.chat.EntityChatData;
-import com.owlmaddie.chat.PlayerData;
 import com.owlmaddie.chat.ChatDataManager.ChatStatus;
 import com.owlmaddie.ui.BubbleRenderer;
-import com.owlmaddie.ui.PlayerMessageManager;
 
 /**
  * The {@code ClientEntityFinder} class is used to find a specific MobEntity by
@@ -47,7 +45,6 @@ public class ClientEntityFinder {
      */
     public static Optional<Entity> getClosestEntityToPlayerWithChatBubbleOpen() {
         ClientPlayerEntity player = MinecraftClient.getInstance().player;
-
         Optional<Entity> closest = BubbleRenderer.getRelevantEntities().stream()
                 .filter(entity -> {
                     if (!(entity instanceof MobEntity))
@@ -58,5 +55,14 @@ public class ClientEntityFinder {
                 })
                 .min(Comparator.comparingDouble(e -> e.getPos().distanceTo(player.getPos())));
         return closest;
+    }
+
+    public static List<Entity> getCloseEntities(double maxDistance) {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        return BubbleRenderer.getRelevantEntities().stream().filter(
+                entity -> {
+                    return entity.getPos().distanceTo(player.getPos()) < maxDistance;
+                }).toList();
+
     }
 }
