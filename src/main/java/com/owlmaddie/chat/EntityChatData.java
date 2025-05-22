@@ -14,6 +14,7 @@ import com.owlmaddie.utils.Randomizer;
 import com.owlmaddie.utils.ServerEntityFinder;
 import com.owlmaddie.utils.VillagerEntityAccessor;
 import com.owlmaddie.utils.WitherEntityAccessor;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.ExperienceOrbEntity;
 import net.minecraft.entity.boss.WitherEntity;
 import net.minecraft.entity.boss.dragon.EnderDragonEntity;
@@ -25,6 +26,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
+import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.village.VillageGossipType;
 import net.minecraft.world.GameRules;
@@ -318,7 +320,7 @@ public class EntityChatData {
     }
 
     // Generate greeting
-    public void generateMessage(String userLanguage, ServerPlayerEntity player, String userMessage, boolean is_auto_message) {
+    public void generateMessage(String userLanguage, ServerPlayerEntity player, String userMessage, boolean is_auto_message, boolean isFromChat, boolean isFromPlayer) {
         String systemPrompt = "system-chat";
         if (is_auto_message) {
             // Increment an auto-generated message
@@ -326,6 +328,10 @@ public class EntityChatData {
         } else {
             // Reset auto-generated counter
             this.auto_generated = 0;
+        }
+
+        if (!is_auto_message && !isFromChat && isFromPlayer) {
+            player.server.getPlayerManager().broadcast(Text.literal("<" + player.getName().getString() + "> " + userMessage),false);
         }
 
         // Add USER Message
@@ -559,7 +565,10 @@ public class EntityChatData {
                     // Update the last entry in previousMessages to use the original message
                     this.previousMessages.set(this.previousMessages.size() - 1,
                             new ChatMessage(result.getOriginalMessage(), ChatDataManager.ChatSender.ASSISTANT, player.getDisplayName().getString()));
-
+                        player.server.getPlayerManager().broadcast(Text.of("<" + entity.getCustomName().getString() + " the " +entity.getType().getName().getString() + "> " + cleanedMessage), false);
+                    if (isFromPlayer) {
+                        this.generateNearbyChat(userLanguage, player, entity, cleanedMessage, userMessage);
+                    }
                 } else {
                     // No valid LLM response
                     throw new RuntimeException(ChatGPTRequest.lastErrorMessage);
@@ -586,6 +595,26 @@ public class EntityChatData {
                 ServerPackets.SendClickableError(player, errorMessage, "https://elefant.gg/discord");
             }
         });
+    }
+
+    // Trigger nearby entities to potentially respond to a message
+    public void generateNearbyChat(String userLanguage, ServerPlayerEntity player, MobEntity speakingEntity, String message, String playerMessage) {
+        ServerWorld world = (ServerWorld) speakingEntity.getWorld();
+        double radius = 8.0;
+        for (Entity entity : world.iterateEntities()) {
+            if (entity instanceof MobEntity other && entity != speakingEntity) {
+                if (speakingEntity.distanceTo(other) <= radius) {
+                    EntityChatData otherData = ChatDataManager.getServerInstance().getOrCreateChatData(other.getUuidAsString());
+                    if (!otherData.characterSheet.isEmpty()) {
+                        otherData.addMessage(playerMessage, ChatDataManager.ChatSender.USER, player, "system-chat");
+
+                        String sourceName = speakingEntity.getDisplayName().getString();
+                        String entityMessage = "<" + sourceName + " responded: " + message + ">";
+                        generate_chat(userLanguage, otherData, player, other, entityMessage, false, false, false);
+                    }
+                }
+            }
+        }
     }
 
     public static String truncateString(String input, int maxLength) {
