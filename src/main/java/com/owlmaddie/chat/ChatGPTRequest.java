@@ -209,6 +209,12 @@ public class ChatGPTRequest {
 
                 // Check for error message in response
                 if (connection.getResponseCode() >= HttpURLConnection.HTTP_BAD_REQUEST) {
+                    LOGGER.error(String.format("BAD RESPONSE CODE %d", connection.getResponseCode()));
+                    LOGGER.error(String.format(connection.getResponseMessage()));
+                    if(connection.getErrorStream() == null){
+                        lastErrorMessage = "Internal server error, Try restarting player2";
+                        return null;
+                    }
                     try (BufferedReader errorReader = new BufferedReader(
                             new InputStreamReader(connection.getErrorStream(), StandardCharsets.UTF_8))) {
                         String errorLine;
@@ -219,6 +225,7 @@ public class ChatGPTRequest {
 
                         // Parse and log the error response using Gson
                         String cleanError = parseAndLogErrorResponse(errorResponse.toString());
+                        System.out.println(String.format("CHATGPT ERROR : %s", errorResponse.toString()));
                         lastErrorMessage = cleanError;
                     } catch (Exception e) {
                         LOGGER.error("Failed to read error response", e);
@@ -226,7 +233,7 @@ public class ChatGPTRequest {
                     }
                     return null;
                 } else {
-                    lastErrorMessage = null;
+                    // lastErrorMessage = null;
                 }
 
                 try (BufferedReader br = new BufferedReader(
@@ -241,7 +248,10 @@ public class ChatGPTRequest {
                     ChatGPTResponse chatGPTResponse = gsonOutput.fromJson(response.toString(), ChatGPTResponse.class);
                     if (chatGPTResponse != null && chatGPTResponse.choices != null
                             && !chatGPTResponse.choices.isEmpty()) {
-                        String content = chatGPTResponse.choices.get(0).message.content;
+                                String content = chatGPTResponse.choices.get(0).message.content;
+                            if(content == null){
+                                return "";
+                            }
                         return content;
                     } else {
                         lastErrorMessage = "Failed to parse response from LLM";
