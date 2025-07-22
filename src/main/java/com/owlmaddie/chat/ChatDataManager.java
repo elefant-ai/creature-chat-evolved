@@ -132,7 +132,7 @@ public class ChatDataManager {
 
         if (loadFile.exists()) {
             try (InputStreamReader reader = new InputStreamReader(new FileInputStream(loadFile), StandardCharsets.UTF_8)) {
-                Type type = new TypeToken<ConcurrentHashMap<String, EntityChatData>>(){}.getType();
+                Type type = new TypeToken<ConcurrentHashMap<UUID, EntityChatData>>(){}.getType();
                 this.entityChatDataMap = SerializationGSON.GSON.fromJson(reader, type);
 
                 // Clean up blank, temp entities in data
@@ -142,6 +142,7 @@ public class ChatDataManager {
                 for (EntityChatData entityChatData : entityChatDataMap.values()) {
                     entityChatData.postDeserializeInitialization();
                 }
+                
             } catch (Exception e) {
                 LOGGER.error("Error loading chat data", e);
                 this.entityChatDataMap = new ConcurrentHashMap<>();
